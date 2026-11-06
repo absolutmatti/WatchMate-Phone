@@ -61,7 +61,7 @@ Die vorab kompilierte Installationsdatei befindet sich direkt im Hauptverzeichni
 
 Der **WatchMate TV Web-Companion** ist eine mobile Progressive Web App (PWA), mit der du bequem vom Smartphone aus nach Filmen & Serien suchen und diese mit einem einzigen Klick direkt auf deine Android TV Watchlist senden kannst.
 
-🔗 **Live auf GitHub Pages:** [`https://absolutmatti.github.io/WatchMate-New/web-companion/`](https://absolutmatti.github.io/WatchMate-New/web-companion/)  
+🔗 **Live auf GitHub Pages:** [`https://absolutmatti.github.io/WatchMate-Phone/web-companion/`](https://absolutmatti.github.io/WatchMate-Phone/web-companion/)  
 📂 **Quellcode im Repository:** [`/web-companion/`](./web-companion/)
 
 ### 🚀 Highlights des Web-Companions:
