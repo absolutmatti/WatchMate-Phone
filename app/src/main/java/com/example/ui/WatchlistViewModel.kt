@@ -105,11 +105,20 @@ class WatchlistViewModel(
         }
     }
 
+    val webCompanionUrl = preferences.webCompanionUrl
+
     fun getPairingUrl(): String {
-        val baseUrl = "https://ais-pre-dshkttsmumjwxvx4ys56qq-721974800887.europe-west1.run.app/index.html"
+        val base = preferences.webCompanionUrl.value.trim().ifBlank {
+            UserPreferences.DEFAULT_COMPANION_URL
+        }
         val key = preferences.apiKey.value.trim()
         val reg = preferences.region.value.trim()
-        return "$baseUrl?tmdb_key=$key&region=$reg"
+        val separator = if (base.contains("?")) "&" else "?"
+        return "$base${separator}tmdb_key=$key&region=$reg"
+    }
+
+    fun setWebCompanionUrl(url: String) {
+        preferences.setWebCompanionUrl(url)
     }
 
     fun signInWithGoogle(activity: android.app.Activity) {

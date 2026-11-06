@@ -57,6 +57,48 @@ Die vorab kompilierte Installationsdatei befindet sich direkt im Hauptverzeichni
 
 ---
 
+## 📱 Mobile Web-Companion (PWA)
+
+Der **WatchMate TV Web-Companion** ist eine mobile Progressive Web App (PWA), mit der du bequem vom Smartphone aus nach Filmen & Serien suchen und diese mit einem einzigen Klick direkt auf deine Android TV Watchlist senden kannst.
+
+🔗 **Live auf GitHub Pages:** [`https://absolutmatti.github.io/WatchMate-New/web-companion/`](https://absolutmatti.github.io/WatchMate-New/web-companion/)  
+📂 **Quellcode im Repository:** [`/web-companion/`](./web-companion/)
+
+### 🚀 Highlights des Web-Companions:
+- 📱 **Kein App-Store-Download nötig:** Sofort im mobilen Browser (Safari, Chrome, Firefox) als PWA auf dem Homescreen installierbar.
+- ⚡ **TMDb-Echtzeitsuche (300 ms Debounce):** Schnelle Suche nach Filmen und TV-Serien mit weltweiten Metadaten und deutscher FSK-Einstufung.
+- 🍿 **Streaming-Anbieter (DE 🇩🇪, AT 🇦🇹, CH 🇨🇭):** Zeigt sofort an, ob ein Titel bei Netflix, Prime Video, Disney+, WOW, Apple TV+ usw. verfügbar ist.
+- 🔄 **Echtzeit-Synchronisation (Firebase Firestore):** Titel, die du auf dem Smartphone hinzufügst oder entfernst, erscheinen in Sekundenbruchteilen live auf deinem Fernseher.
+- 📶 **Offline-Fähig:** Funktioniert dank Service Worker auch bei schlechter Internetverbindung.
+
+---
+
+### 📲 TV-Kopplung per QR-Code
+
+1. Öffne auf dem Android TV die **WatchMate TV** App.
+2. Klicke in der oberen Leiste auf das Smartphone-Symbol 📱 (oder gehe in die **Einstellungen ⚙️ ➔ Web-Companion Kopplung**).
+3. Richte deine Smartphone-Kamera auf den angezeigten QR-Code.
+4. Der QR-Code übergibt automatisch deinen TMDb-API-Key und deine Streaming-Region (`?tmdb_key=...&region=DE`) an die Web-App, sodass du sofort loslegen kannst!
+
+---
+
+### 🔐 Google-Login & Firebase Authorized Domains (Wichtig für GitHub Pages)
+
+Damit der Cloud-Sync zwischen TV und Smartphone funktioniert, melden sich beide Geräte mit demselben Google-Konto an.
+
+> [!IMPORTANT]
+> **Einmalige Freischaltung für GitHub Pages:**  
+> Aus Sicherheitsgründen erlaubt Google OAuth nur Anmeldungen von autorisierten Domains. Wenn du die Web-App über GitHub Pages (`absolutmatti.github.io`) aufrufst, muss die Domain einmalig in deiner Firebase Console freigeschaltet werden:
+>
+> 1. Öffne die [Firebase Console](https://console.firebase.google.com).
+> 2. Wähle dein Projekt (`gen-lang-client-0275433631`).
+> 3. Navigiere zu **Build** ➔ **Authentication** ➔ Tab **Settings** (Einstellungen).
+> 4. Klicke links auf **Authorized domains** (Autorisierte Domains).
+> 5. Klicke auf **Add domain** (Domain hinzufügen) und trage `absolutmatti.github.io` ein.
+> 6. Klicke auf **Save**. Ab jetzt funktioniert der Google-Login auf deinem Smartphone reibungslos!
+
+---
+
 ## 🛠️ Tech-Stack & Architektur
 
 Die App wurde von Grund auf nach modernen Android- und Google-TV-Best-Practices entwickelt:

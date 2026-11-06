@@ -570,45 +570,47 @@ fun TvPairingDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // QR Code Box
-                    Box(
-                        modifier = Modifier
-                            .size(200.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White)
-                            .padding(8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        androidx.compose.foundation.Image(
-                            bitmap = qrImageBitmap,
-                            contentDescription = "QR Code zur Kopplung mit der Web-App",
-                            modifier = Modifier.size(184.dp)
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(210.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White)
+                                .padding(10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.foundation.Image(
+                                bitmap = qrImageBitmap,
+                                contentDescription = "QR Code zur Kopplung mit der Web-App",
+                                modifier = Modifier.size(190.dp)
+                            )
+                        }
                     }
 
                     // Instructions & Auth Status
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "1. Kamera-App auf Smartphone öffnen",
+                            text = "1. Kamera auf Smartphone auf QR-Code richten",
                             color = Color.White,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "2. QR-Code scannen (übernimmt TMDb & Region)",
+                            text = "2. Web-App öffnet sich & übernimmt TMDb + Region",
                             color = Color.White,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "3. Titel suchen und mit 1 Klick auf den TV senden",
+                            text = "3. Filme/Serien suchen und 1-Klick auf den TV senden",
                             color = Color.White,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         // Cloud Sync Badge / Account
                         Surface(
@@ -618,7 +620,7 @@ fun TvPairingDialog(
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
                                 Text(
-                                    text = if (currentUser != null) "☁️ Cloud-Sync aktiv" else "☁️ Cloud-Sync",
+                                    text = if (currentUser != null) "☁️ TV Cloud-Sync aktiv" else "☁️ TV Cloud-Sync (Optional)",
                                     color = if (currentUser != null) CyanNeon else AmberAccent,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
@@ -632,10 +634,18 @@ fun TvPairingDialog(
                                 )
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "🔗 $pairingUrl",
+                            color = Color(0xFFAAAAAA),
+                            fontSize = 10.sp,
+                            maxLines = 2
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Actions Footer
                 Row(

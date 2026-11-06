@@ -164,6 +164,18 @@
               Abmelden
             </button>
           </div>
+
+          <div id="unauthorizedDomainNotice" class="domain-warning-box hidden">
+            <h4>⚠️ Domain noch nicht in Firebase autorisiert</h4>
+            <p>Deine Web-App läuft auf <strong id="currentHostnameLabel">dieser Domain</strong>. Um den Google-Login auf GitHub Pages freizuschalten, füge die Domain einmalig in deiner Firebase Console hinzu:</p>
+            <ol>
+              <li>Öffne <a href="https://console.firebase.google.com" target="_blank" rel="noopener">Firebase Console</a></li>
+              <li>Wähle Projekt <code>gen-lang-client-0275433631</code></li>
+              <li>Gehe zu <strong>Authentication</strong> ➔ <strong>Settings</strong> ➔ <strong>Authorized domains</strong></li>
+              <li>Klicke auf <strong>Add domain</strong> und trage <code id="copyDomainCode">domain</code> ein.</li>
+            </ol>
+            <p class="small-hint">💡 <em>Tipp:</em> Suche und lokale Merkliste funktionieren auch ohne Login!</p>
+          </div>
         </div>
 
         <!-- 2. Eigene Streaming-Abonnements -->

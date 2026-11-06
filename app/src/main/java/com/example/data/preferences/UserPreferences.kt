@@ -151,15 +151,28 @@ class UserPreferences(context: Context) {
         _apiKey.value = newKey.trim()
     }
 
+    private val _webCompanionUrl = MutableStateFlow(
+        prefs.getString(KEY_COMPANION_URL, DEFAULT_COMPANION_URL) ?: DEFAULT_COMPANION_URL
+    )
+    val webCompanionUrl: StateFlow<String> = _webCompanionUrl.asStateFlow()
+
+    fun setWebCompanionUrl(url: String) {
+        val clean = url.trim()
+        prefs.edit().putString(KEY_COMPANION_URL, clean).apply()
+        _webCompanionUrl.value = clean
+    }
+
     var isInitialDataSeeded: Boolean
         get() = prefs.getBoolean(KEY_SEEDED, false)
         set(value) = prefs.edit().putBoolean(KEY_SEEDED, value).apply()
 
     companion object {
         const val DEFAULT_KEY = "1b490ff6b2d76245e0c8503271f5f094"
+        const val DEFAULT_COMPANION_URL = "https://absolutmatti.github.io/WatchMate-New/web-companion/"
         private const val KEY_PROVIDERS = "subscribed_providers"
         private const val KEY_REGION = "tmdb_region"
         private const val KEY_API_KEY = "tmdb_api_key"
+        private const val KEY_COMPANION_URL = "web_companion_url"
         private const val KEY_SEEDED = "initial_data_seeded"
     }
 }

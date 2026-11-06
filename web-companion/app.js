@@ -3,6 +3,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
@@ -193,6 +195,17 @@ function initFirebaseIfConfigured() {
     state.authInstance = getAuth(app);
     state.firestoreDb = getFirestore(app, FIRESTORE_DATABASE_ID);
 
+    // Auf Rückkehr von mobilem Redirect-Login prüfen
+    getRedirectResult(state.authInstance)
+      .then((result) => {
+        if (result && result.user) {
+          showToast(`🎉 Angemeldet als ${result.user.displayName || result.user.email}!`);
+        }
+      })
+      .catch((err) => {
+        handleAuthError(err);
+      });
+
     onAuthStateChanged(state.authInstance, (user) => {
       state.currentUser = user;
       updateAuthModalUI(user);
@@ -210,6 +223,21 @@ function initFirebaseIfConfigured() {
     console.error("Firebase Init Error:", err);
     showToast("⚠️ Firebase-Konfiguration ungültig. Nutze lokalen Speicher.");
     loadLocalWatchlistFallback();
+  }
+}
+
+function handleAuthError(err) {
+  console.error("Google Auth Error:", err);
+  const domainNotice = document.getElementById("unauthorizedDomainNotice");
+  if (err && err.code === "auth/unauthorized-domain") {
+    if (domainNotice) domainNotice.classList.remove("hidden");
+    const settingsModal = document.getElementById("settingsModal");
+    if (settingsModal) settingsModal.classList.remove("hidden");
+    showToast("⚠️ Domain nicht in Firebase autorisiert! Siehe Anleitung im Profil.");
+  } else if (err && (err.code === "auth/popup-blocked" || err.code === "auth/cancelled-popup-request")) {
+    showToast("⚠️ Popup blockiert. Bitte Weiterleitung zulassen...");
+  } else if (err) {
+    showToast(`⚠️ Anmeldung fehlgeschlagen: ${err.message || err.code}`);
   }
 }
 
@@ -695,6 +723,14 @@ function updateAuthModalUI(user) {
   const signOutBtn = document.getElementById("googleSignOutBtn");
   const avatar = document.getElementById("userAvatar");
   const defaultIcon = document.getElementById("userIconDefault");
+  const domainNotice = document.getElementById("unauthorizedDomainNotice");
+
+  // Hostname für Firebase Authorized Domains vorbereiten
+  const currentHost = window.location.hostname || "absolutmatti.github.io";
+  const hostLabel = document.getElementById("currentHostnameLabel");
+  const codeLabel = document.getElementById("copyDomainCode");
+  if (hostLabel) hostLabel.textContent = currentHost;
+  if (codeLabel) codeLabel.textContent = currentHost;
 
   if (user) {
     badge.textContent = "Verbunden";
@@ -703,6 +739,7 @@ function updateAuthModalUI(user) {
     infoBox.classList.remove("hidden");
     signInBtn.classList.add("hidden");
     signOutBtn.classList.remove("hidden");
+    if (domainNotice) domainNotice.classList.add("hidden");
 
     if (user.photoURL) {
       avatar.src = user.photoURL;
@@ -913,13 +950,28 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("⚠️ Bitte zuerst unten die Firebase Projekt-Konfiguration eintragen.");
       return;
     }
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(state.authInstance, provider);
-      showToast("🎉 Erfolgreich mit Google-Konto verbunden!");
+      if (isMobile) {
+        // Auf Mobilgeräten blockieren Browser oft Popups oder verlieren den Window-Context
+        await signInWithRedirect(state.authInstance, provider);
+      } else {
+        try {
+          await signInWithPopup(state.authInstance, provider);
+          showToast("🎉 Erfolgreich mit Google-Konto verbunden!");
+        } catch (popupErr) {
+          if (popupErr.code === "auth/popup-blocked" || popupErr.code === "auth/cancelled-popup-request") {
+            await signInWithRedirect(state.authInstance, provider);
+          } else {
+            throw popupErr;
+          }
+        }
+      }
     } catch (err) {
-      console.error("Google Sign-In Error:", err);
-      showToast(`⚠️ Anmeldung fehlgeschlagen: ${err.message}`);
+      handleAuthError(err);
     }
   });
 
