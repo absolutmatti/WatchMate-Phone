@@ -43,6 +43,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -113,6 +118,14 @@ fun TvPosterCard(
                 .clip(RoundedCornerShape(12.dp))
                 .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
                 .focusable(interactionSource = interactionSource)
+                .onKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyUp &&
+                        (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                    ) {
+                        onClick()
+                        true
+                    } else false
+                }
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
@@ -370,6 +383,14 @@ fun TvButton(
             }
             .clip(RoundedCornerShape(8.dp))
             .focusable(enabled = enabled, interactionSource = interactionSource)
+            .onKeyEvent { keyEvent ->
+                if (enabled && keyEvent.type == KeyEventType.KeyUp &&
+                    (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                ) {
+                    onClick()
+                    true
+                } else false
+            }
             .clickable(
                 enabled = enabled,
                 interactionSource = interactionSource,

@@ -339,8 +339,10 @@ class WatchlistViewModel(
 
     fun changeStatus(item: WatchlistItem, newStatus: String) {
         viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val lastWatched = if (newStatus == WatchlistItem.STATUS_WATCHED || newStatus == WatchlistItem.STATUS_WATCHING) now else 0L
             repository.updateStatus(item.id, newStatus)
-            val updated = item.copy(status = newStatus)
+            val updated = item.copy(status = newStatus, lastWatchedAt = lastWatched)
             _selectedItem.value = updated
             statusChangeDialogItem.value = null
             _events.emit(UiEvent.ShowToast("Status geändert zu: ${getStatusLabel(newStatus)}"))

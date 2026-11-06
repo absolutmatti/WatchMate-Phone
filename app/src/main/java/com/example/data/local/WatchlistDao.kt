@@ -35,8 +35,11 @@ interface WatchlistDao {
     @Query("DELETE FROM watchlist_items WHERE id = :id")
     suspend fun deleteById(id: Long)
 
-    @Query("UPDATE watchlist_items SET status = :status WHERE id = :id")
-    suspend fun updateStatus(id: Long, status: String)
+    @Query("UPDATE watchlist_items SET status = :status, lastWatchedAt = :lastWatchedAt WHERE id = :id")
+    suspend fun updateStatus(id: Long, status: String, lastWatchedAt: Long)
+
+    @Query("UPDATE watchlist_items SET providersJson = :providersJson, primaryProviderName = :primaryProviderName, primaryProviderLogo = :primaryProviderLogo WHERE id = :id")
+    suspend fun updateProviders(id: Long, providersJson: String?, primaryProviderName: String?, primaryProviderLogo: String?)
 
     @Query("UPDATE watchlist_items SET currentSeason = :season, currentEpisode = :episode, status = :status, lastWatchedAt = :lastWatchedAt WHERE id = :id")
     suspend fun updateEpisodeProgress(id: Long, season: Int, episode: Int, status: String, lastWatchedAt: Long)

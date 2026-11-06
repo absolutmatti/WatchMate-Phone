@@ -83,7 +83,9 @@ class WatchlistRepository(
 
     suspend fun updateStatus(id: Long, newStatus: String) {
         withContext(Dispatchers.IO) {
-            dao.updateStatus(id, newStatus)
+            val now = System.currentTimeMillis()
+            val lastWatched = if (newStatus == WatchlistItem.STATUS_WATCHED || newStatus == WatchlistItem.STATUS_WATCHING) now else 0L
+            dao.updateStatus(id, newStatus, lastWatched)
             dao.getItemByIdDirect(id)?.let { syncService?.syncItemToCloud(it) }
         }
     }
@@ -392,16 +394,24 @@ class WatchlistRepository(
                 }
                 val details = extractProviderDetails(results)
                 val json = serializeProvidersJson(details)
-                val updated = item.copy(
+
+                // Lese aktuellen DB-Zustand, um jüngste Status- oder Episodenänderungen niemals zu überschreiben!
+                val currentInDb = dao.getItemByIdDirect(item.id) ?: item
+                val updated = currentInDb.copy(
                     providersJson = json,
-                    primaryProviderName = details.primaryProviderName ?: item.primaryProviderName,
-                    primaryProviderLogo = details.primaryProviderLogo ?: item.primaryProviderLogo
+                    primaryProviderName = details.primaryProviderName ?: currentInDb.primaryProviderName,
+                    primaryProviderLogo = details.primaryProviderLogo ?: currentInDb.primaryProviderLogo
                 )
-                dao.update(updated)
+                dao.updateProviders(
+                    id = item.id,
+                    providersJson = json,
+                    primaryProviderName = updated.primaryProviderName,
+                    primaryProviderLogo = updated.primaryProviderLogo
+                )
                 updated
             } catch (e: Exception) {
                 Log.e("WatchlistRepository", "Error refreshing providers: ${e.message}")
-                item
+                dao.getItemByIdDirect(item.id) ?: item
             }
         }
     }

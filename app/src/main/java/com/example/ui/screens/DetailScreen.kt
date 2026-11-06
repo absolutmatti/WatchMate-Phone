@@ -785,6 +785,12 @@ fun ActionButtonsSection(
             }
 
             // [ 🔄 Status ändern ]
+            val currentStatusLabel = when (item.status) {
+                WatchlistItem.STATUS_WATCHING -> "Gerade am ansehen"
+                WatchlistItem.STATUS_WATCHED -> "Gesehen"
+                WatchlistItem.STATUS_DROPPED -> "Abgebrochen"
+                else -> "Noch nicht gesehen"
+            }
             TvButton(
                 onClick = { onOpenStatusDialog(item) },
                 modifier = Modifier.testTag("action_change_status_button")
@@ -792,7 +798,7 @@ fun ActionButtonsSection(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Sync, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("🔄 Status ändern", fontSize = 14.sp)
+                    Text("🔄 Status: $currentStatusLabel", fontSize = 14.sp)
                 }
             }
 

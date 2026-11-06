@@ -132,4 +132,35 @@ class WatchlistLogicTest {
         assertEquals(1, droppedTab.size)
         assertEquals("Series Dropped", droppedTab[0].title)
     }
+
+    @Test
+    fun testStatusChangeTransitionMovesItemBetweenTabs() {
+        var movie = WatchlistItem(id = 10, mediaType = "movie", title = "Dune 2", status = WatchlistItem.STATUS_PLAN_TO_WATCH)
+        val initialList = listOf(movie)
+
+        // Initially in ALL and MOVIES, not in WATCHED or DROPPED
+        assertTrue(initialList.any { it.status != WatchlistItem.STATUS_WATCHED && it.status != WatchlistItem.STATUS_DROPPED })
+        assertTrue(initialList.filter { it.status == WatchlistItem.STATUS_WATCHED }.isEmpty())
+
+        // Change status to WATCHED
+        movie = movie.copy(status = WatchlistItem.STATUS_WATCHED, lastWatchedAt = System.currentTimeMillis())
+        val updatedList = listOf(movie)
+
+        // Now NOT in ALL or MOVIES
+        val inAllTab = updatedList.filter { it.status != WatchlistItem.STATUS_WATCHED && it.status != WatchlistItem.STATUS_DROPPED }
+        assertTrue(inAllTab.isEmpty())
+
+        // Now IN WATCHED tab
+        val inWatchedTab = updatedList.filter { it.status == WatchlistItem.STATUS_WATCHED }
+        assertEquals(1, inWatchedTab.size)
+        assertEquals("Dune 2", inWatchedTab[0].title)
+
+        // Change status to DROPPED
+        movie = movie.copy(status = WatchlistItem.STATUS_DROPPED)
+        val droppedList = listOf(movie)
+        assertTrue(droppedList.filter { it.status == WatchlistItem.STATUS_WATCHED }.isEmpty())
+        val inDroppedTab = droppedList.filter { it.status == WatchlistItem.STATUS_DROPPED }
+        assertEquals(1, inDroppedTab.size)
+        assertEquals("Dune 2", inDroppedTab[0].title)
+    }
 }

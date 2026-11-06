@@ -37,11 +37,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -284,6 +292,30 @@ fun StatusChangeDialog(
     onStatusSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val statuses = remember(item.isTv) {
+        val list = mutableListOf(
+            WatchlistItem.STATUS_PLAN_TO_WATCH to ("Noch nicht gesehen" to Color.White)
+        )
+        if (item.isTv) {
+            list.add(WatchlistItem.STATUS_WATCHING to ("Gerade am ansehen" to AmberAccent))
+        }
+        list.add(WatchlistItem.STATUS_WATCHED to ("Gesehen" to GreenWatched))
+        list.add(WatchlistItem.STATUS_DROPPED to ("Abgebrochen" to RedDropped))
+        list
+    }
+
+    val focusRequesters = remember(statuses.size) { List(statuses.size) { FocusRequester() } }
+    val initialFocusIndex = remember(item.status) {
+        val idx = statuses.indexOfFirst { it.first == item.status }
+        if (idx >= 0) idx else 0
+    }
+
+    LaunchedEffect(Unit) {
+        if (initialFocusIndex in focusRequesters.indices) {
+            focusRequesters[initialFocusIndex].requestFocus()
+        }
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
@@ -307,16 +339,7 @@ fun StatusChangeDialog(
                     modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
                 )
 
-                val statuses = mutableListOf(
-                    WatchlistItem.STATUS_PLAN_TO_WATCH to ("Noch nicht gesehen" to Color.White)
-                )
-                if (item.isTv) {
-                    statuses.add(WatchlistItem.STATUS_WATCHING to ("Gerade am ansehen" to AmberAccent))
-                }
-                statuses.add(WatchlistItem.STATUS_WATCHED to ("Gesehen" to GreenWatched))
-                statuses.add(WatchlistItem.STATUS_DROPPED to ("Abgebrochen" to RedDropped))
-
-                statuses.forEach { (statusKey, pair) ->
+                statuses.forEachIndexed { index, (statusKey, pair) ->
                     val (label, color) = pair
                     val isCurrent = item.status == statusKey
                     val itemInteraction = remember { MutableInteractionSource() }
@@ -349,11 +372,21 @@ fun StatusChangeDialog(
                                 color = itemBorderColor,
                                 shape = RoundedCornerShape(8.dp)
                             )
+                            .focusRequester(focusRequesters[index])
                             .focusable(interactionSource = itemInteraction)
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyUp &&
+                                    (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                                ) {
+                                    onStatusSelected(statusKey)
+                                    true
+                                } else false
+                            }
                             .clickable(
                                 interactionSource = itemInteraction,
                                 indication = null
-                            ) { onStatusSelected(statusKey) },
+                            ) { onStatusSelected(statusKey) }
+                            .testTag("status_option_$statusKey"),
                         color = itemBg,
                         shape = RoundedCornerShape(8.dp)
                     ) {
