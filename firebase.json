@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-android-watchmat-2b9ece1e-8769-40dd-b89f-34c6f3acd253",
+      "rules": "firestore.rules"
+    }
+  ]
+}

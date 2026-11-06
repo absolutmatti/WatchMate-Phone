@@ -131,11 +131,21 @@ const CURATED_STARTER_CATALOG = [
    2. APP STATE & KONFIGURATION
    ========================================================================= */
 
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDrG2xPXxCaid0EoJ9x3W6D4HbWgITs9YA",
+  authDomain: "gen-lang-client-0275433631.firebaseapp.com",
+  projectId: "gen-lang-client-0275433631",
+  storageBucket: "gen-lang-client-0275433631.firebasestorage.app",
+  messagingSenderId: "443537803076",
+  appId: "1:443537803076:web:watchmate-companion"
+};
+const FIRESTORE_DATABASE_ID = "ai-studio-android-watchmat-2b9ece1e-8769-40dd-b89f-34c6f3acd253";
+
 const state = {
   region: localStorage.getItem("wm_region") || "DE",
   tmdbKey: localStorage.getItem("wm_tmdb_key") || "",
   subscriptions: JSON.parse(localStorage.getItem("wm_subs") || '["netflix","prime","disney"]'),
-  firebaseConfig: JSON.parse(localStorage.getItem("wm_firebase_config") || "null"),
+  firebaseConfig: JSON.parse(localStorage.getItem("wm_firebase_config") || "null") || DEFAULT_FIREBASE_CONFIG,
   currentUser: null,
   firestoreDb: null,
   authInstance: null,
@@ -181,7 +191,7 @@ function initFirebaseIfConfigured() {
   try {
     const app = getApps().length === 0 ? initializeApp(state.firebaseConfig) : getApps()[0];
     state.authInstance = getAuth(app);
-    state.firestoreDb = getFirestore(app);
+    state.firestoreDb = getFirestore(app, FIRESTORE_DATABASE_ID);
 
     onAuthStateChanged(state.authInstance, (user) => {
       state.currentUser = user;

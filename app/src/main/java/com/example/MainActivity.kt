@@ -35,21 +35,38 @@ import com.example.ui.screens.DetailScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.SearchScreen
 import com.example.ui.screens.SettingsScreen
+import androidx.lifecycle.lifecycleScope
+import androidx.compose.runtime.remember
+import com.example.data.sync.WatchlistFirestoreSyncService
+import com.example.ui.components.TvPairingDialog
 import com.example.ui.theme.WatchMateTvTheme
+import android.app.Activity
 
 class MainActivity : ComponentActivity() {
+
+    private val syncService: WatchlistFirestoreSyncService by lazy {
+        val db = WatchlistDatabase.getDatabase(applicationContext)
+        WatchlistFirestoreSyncService(
+            context = applicationContext,
+            dao = db.watchlistDao(),
+            scope = lifecycleScope
+        )
+    }
 
     private val viewModel: WatchlistViewModel by viewModels {
         val db = WatchlistDatabase.getDatabase(applicationContext)
         val apiService = TMDbApiService.create()
         val preferences = UserPreferences(applicationContext)
         val repository = WatchlistRepository(db.watchlistDao(), apiService, preferences)
-        WatchlistViewModel.Factory(repository, preferences)
+        WatchlistViewModel.Factory(repository, preferences, syncService)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Attempt silent auto-sign in if previously authenticated with Google
+        syncService.attemptAutoSignIn(this)
 
         setContent {
             WatchMateTvTheme {
@@ -80,6 +97,9 @@ fun WatchMateTvApp(viewModel: WatchlistViewModel) {
     val statusChangeItem by viewModel.statusChangeDialogItem.collectAsStateWithLifecycle()
     val deleteConfirmItem by viewModel.deleteConfirmDialogItem.collectAsStateWithLifecycle()
     val isFilterDialogVisible by viewModel.isFilterDialogVisible.collectAsStateWithLifecycle()
+    val isPairingDialogVisible by viewModel.isPairingDialogVisible.collectAsStateWithLifecycle()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val syncStatusText by viewModel.syncStatusText.collectAsStateWithLifecycle()
 
     // Handle UI Events (Toasts, Trailer, Deep-Links)
     LaunchedEffect(Unit) {
@@ -161,11 +181,14 @@ fun WatchMateTvApp(viewModel: WatchlistViewModel) {
                         subscribedProviders = subscribedProviders,
                         currentRegion = currentRegion,
                         apiKey = tmdbApiKey,
+                        currentUser = currentUser,
+                        syncStatusText = syncStatusText,
                         onTabSelected = { viewModel.setTab(it) },
                         onToggleProvider = { viewModel.toggleStreamingProvider(it) },
                         onSetRegion = { viewModel.setRegion(it) },
                         onSaveApiKey = { viewModel.setApiKey(it) },
-                        onReloadSampleData = { viewModel.reloadSampleData() }
+                        onReloadSampleData = { viewModel.reloadSampleData() },
+                        onOpenPairingDialog = { viewModel.isPairingDialogVisible.value = true }
                     )
                 }
                 else -> {
@@ -177,6 +200,7 @@ fun WatchMateTvApp(viewModel: WatchlistViewModel) {
                         onTabSelected = { viewModel.setTab(it) },
                         onItemSelected = { viewModel.selectItem(it) },
                         onOpenFilterDialog = { viewModel.isFilterDialogVisible.value = true },
+                        onOpenPairingDialog = { viewModel.isPairingDialogVisible.value = true },
                         onShufflePick = { viewModel.shufflePickRandom() },
                         onNavigateToSearch = { viewModel.setTab(NavTab.ADD) },
                         onLoadSampleData = { viewModel.reloadSampleData() }
@@ -185,6 +209,22 @@ fun WatchMateTvApp(viewModel: WatchlistViewModel) {
             }
 
             // Dialogs
+            if (isPairingDialogVisible) {
+                val pairingUrl = remember(tmdbApiKey, currentRegion) { viewModel.getPairingUrl() }
+                TvPairingDialog(
+                    pairingUrl = pairingUrl,
+                    currentUser = currentUser,
+                    syncStatusText = syncStatusText,
+                    onSignInWithGoogle = {
+                        (context as? Activity)?.let { viewModel.signInWithGoogle(it) }
+                    },
+                    onSignOut = {
+                        viewModel.signOut(context)
+                    },
+                    onDismiss = { viewModel.isPairingDialogVisible.value = false }
+                )
+            }
+
             if (isFilterDialogVisible) {
                 FilterDialog(
                     filterState = filterState,

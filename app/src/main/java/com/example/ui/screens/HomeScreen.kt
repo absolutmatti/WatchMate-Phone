@@ -78,6 +78,7 @@ fun HomeScreen(
     onTabSelected: (NavTab) -> Unit,
     onItemSelected: (WatchlistItem) -> Unit,
     onOpenFilterDialog: () -> Unit,
+    onOpenPairingDialog: () -> Unit,
     onShufflePick: () -> Unit,
     onNavigateToSearch: () -> Unit,
     onLoadSampleData: () -> Unit,
@@ -92,7 +93,8 @@ fun HomeScreen(
         // Top TV Navigation Bar
         TvNavigationBar(
             currentTab = currentTab,
-            onTabSelected = onTabSelected
+            onTabSelected = onTabSelected,
+            onOpenPairingDialog = onOpenPairingDialog
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -146,7 +148,8 @@ fun HomeScreen(
 @Composable
 fun TvNavigationBar(
     currentTab: NavTab,
-    onTabSelected: (NavTab) -> Unit
+    onTabSelected: (NavTab) -> Unit,
+    onOpenPairingDialog: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -255,6 +258,53 @@ fun TvNavigationBar(
                         )
                     }
                 }
+            }
+        }
+
+        // Web-Companion / Smartphone Kopplung Button
+        val pairInteraction = remember { MutableInteractionSource() }
+        val isPairFocused by pairInteraction.collectIsFocusedAsState()
+        val pairScale by animateFloatAsState(
+            targetValue = if (isPairFocused) 1.06f else 1.0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
+            ),
+            label = "pairScale"
+        )
+        Surface(
+            modifier = Modifier
+                .padding(start = 8.dp, end = 6.dp)
+                .graphicsLayer {
+                    scaleX = pairScale
+                    scaleY = pairScale
+                }
+                .focusable(interactionSource = pairInteraction)
+                .clickable(
+                    interactionSource = pairInteraction,
+                    indication = null,
+                    onClick = onOpenPairingDialog
+                )
+                .testTag("nav_button_pairing"),
+            color = if (isPairFocused) TvFocusBg else TvCardBg,
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(
+                width = if (isPairFocused) 3.dp else 1.dp,
+                color = if (isPairFocused) TvFocusBorder else CyanNeon
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "📱", fontSize = 14.sp)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Web-App",
+                    color = if (isPairFocused) TvFocusBorder else CyanNeon,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

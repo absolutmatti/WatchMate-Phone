@@ -42,6 +42,8 @@ class WatchlistRepository(
     private val apiService: TMDbApiService,
     private val preferences: UserPreferences
 ) {
+    var syncService: com.example.data.sync.WatchlistFirestoreSyncService? = null
+
     val allItems: Flow<List<WatchlistItem>> = dao.getAllFlow()
 
     fun getItemByIdFlow(id: Long): Flow<WatchlistItem?> = dao.getItemByIdFlow(id)
@@ -61,24 +63,28 @@ class WatchlistRepository(
     suspend fun insertItem(item: WatchlistItem) {
         withContext(Dispatchers.IO) {
             dao.insert(item)
+            syncService?.syncItemToCloud(item)
         }
     }
 
     suspend fun deleteItem(item: WatchlistItem) {
         withContext(Dispatchers.IO) {
             dao.delete(item)
+            syncService?.deleteItemFromCloud(item.id)
         }
     }
 
     suspend fun deleteById(id: Long) {
         withContext(Dispatchers.IO) {
             dao.deleteById(id)
+            syncService?.deleteItemFromCloud(id)
         }
     }
 
     suspend fun updateStatus(id: Long, newStatus: String) {
         withContext(Dispatchers.IO) {
             dao.updateStatus(id, newStatus)
+            dao.getItemByIdDirect(id)?.let { syncService?.syncItemToCloud(it) }
         }
     }
 
@@ -132,6 +138,7 @@ class WatchlistRepository(
                 status = WatchlistItem.STATUS_WATCHING,
                 lastWatchedAt = now
             )
+            syncService?.syncItemToCloud(updatedItem)
 
             if (isFinalEpisode) {
                 EpisodeAdvanceResult.SeriesFinished(updatedItem)

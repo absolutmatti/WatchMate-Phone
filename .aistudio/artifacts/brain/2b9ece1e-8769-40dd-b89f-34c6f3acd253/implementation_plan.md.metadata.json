@@ -1,0 +1,6 @@
+{
+  "summary": "Architektur- und Integrationsplan für die Verbindung zwischen der Android-TV-App und der Web-Companion-App über bidirektionalen Room- und Firestore-Sync, TV-Kopplungsdialog mit QR-Code und lokalem Webserver-Setup.",
+  "updatedAt": "2026-11-06T03:21:21.566290197Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

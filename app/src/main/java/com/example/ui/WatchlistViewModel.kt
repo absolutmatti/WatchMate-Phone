@@ -56,7 +56,8 @@ sealed class UiEvent {
 
 class WatchlistViewModel(
     private val repository: WatchlistRepository,
-    private val preferences: UserPreferences
+    private val preferences: UserPreferences,
+    val syncService: com.example.data.sync.WatchlistFirestoreSyncService? = null
 ) : ViewModel() {
 
     private val _currentTab = MutableStateFlow(NavTab.ALL)
@@ -84,15 +85,54 @@ class WatchlistViewModel(
     val currentRegion = preferences.region
     val tmdbApiKey = preferences.apiKey
 
+    // Cloud Sync & Auth States
+    val currentUser: StateFlow<com.google.firebase.auth.FirebaseUser?> =
+        syncService?.currentUser ?: MutableStateFlow(null).asStateFlow()
+    val syncStatusText: StateFlow<String> =
+        syncService?.syncStatus ?: MutableStateFlow("Bereit").asStateFlow()
+
     // Dialog states
     val seriesFinishedDialogItem = MutableStateFlow<WatchlistItem?>(null)
     val statusChangeDialogItem = MutableStateFlow<WatchlistItem?>(null)
     val deleteConfirmDialogItem = MutableStateFlow<WatchlistItem?>(null)
     val isFilterDialogVisible = MutableStateFlow(false)
+    val isPairingDialogVisible = MutableStateFlow(false)
 
     init {
+        repository.syncService = syncService
         viewModelScope.launch {
             repository.checkAndSeedInitialData()
+        }
+    }
+
+    fun getPairingUrl(): String {
+        val baseUrl = "https://ais-pre-dshkttsmumjwxvx4ys56qq-721974800887.europe-west1.run.app/index.html"
+        val key = preferences.apiKey.value.trim()
+        val reg = preferences.region.value.trim()
+        return "$baseUrl?tmdb_key=$key&region=$reg"
+    }
+
+    fun signInWithGoogle(activity: android.app.Activity) {
+        syncService?.signInWithGoogle(
+            activity = activity,
+            onSuccess = {
+                viewModelScope.launch {
+                    _events.emit(UiEvent.ShowToast("Google-Konto erfolgreich verbunden!"))
+                }
+            },
+            onError = { err ->
+                viewModelScope.launch {
+                    _events.emit(UiEvent.ShowToast(err))
+                }
+            }
+        )
+    }
+
+    fun signOut(context: android.content.Context) {
+        syncService?.signOut(context) {
+            viewModelScope.launch {
+                _events.emit(UiEvent.ShowToast("Erfolgreich abgemeldet."))
+            }
         }
     }
 
@@ -415,11 +455,12 @@ class WatchlistViewModel(
 
     class Factory(
         private val repository: WatchlistRepository,
-        private val preferences: UserPreferences
+        private val preferences: UserPreferences,
+        private val syncService: com.example.data.sync.WatchlistFirestoreSyncService? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return WatchlistViewModel(repository, preferences) as T
+            return WatchlistViewModel(repository, preferences, syncService) as T
         }
     }
 }

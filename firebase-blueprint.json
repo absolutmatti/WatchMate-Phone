@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "WatchlistItem": {
+      "path": "users/{userId}/watchlist/{itemId}",
+      "description": "Ein Film- oder Serieneintrag in der Watchlist eines Benutzers",
+      "fields": {
+        "id": { "type": "number", "description": "TMDb Media ID" },
+        "mediaType": { "type": "string", "description": "'movie' oder 'tv'" },
+        "title": { "type": "string", "description": "Titel des Mediums" },
+        "posterPath": { "type": "string", "description": "TMDb Poster-Pfad" },
+        "backdropPath": { "type": "string", "description": "TMDb Backdrop-Pfad" },
+        "overview": { "type": "string", "description": "Inhaltsangabe" },
+        "releaseDate": { "type": "string", "description": "Erscheinungsdatum YYYY-MM-DD" },
+        "voteAverage": { "type": "number", "description": "TMDb Bewertung" },
+        "status": { "type": "string", "description": "'PLAN_TO_WATCH', 'WATCHING', 'COMPLETED'" },
+        "currentSeason": { "type": "number", "description": "Aktuelle Staffel" },
+        "currentEpisode": { "type": "number", "description": "Aktuelle Episode" },
+        "totalSeasons": { "type": "number", "description": "Gesamtstaffelanzahl" },
+        "seasonEpisodeCount": { "type": "string", "description": "JSON Map der Episoden pro Staffel" },
+        "addedAt": { "type": "number", "description": "Timestamp Hinzugefügt" },
+        "lastWatchedAt": { "type": "number", "description": "Timestamp Zuletzt geschaut" },
+        "streamingProviders": { "type": "string", "description": "JSON Array der Streaming-Anbieter" },
+        "source": { "type": "string", "description": "Quelle, z.B. 'mobile_web' oder 'android_tv'" }
+      }
+    }
+  }
+}

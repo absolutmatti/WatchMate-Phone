@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -512,3 +513,173 @@ fun DeleteConfirmDialog(
         }
     }
 }
+
+@Composable
+fun TvPairingDialog(
+    pairingUrl: String,
+    currentUser: com.google.firebase.auth.FirebaseUser?,
+    syncStatusText: String,
+    onSignInWithGoogle: () -> Unit,
+    onSignOut: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val qrImageBitmap = remember(pairingUrl) {
+        com.example.util.QrCodeGenerator.generateQrBitmap(pairingUrl, 400)
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .widthIn(min = 520.dp, max = 680.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .border(2.dp, CyanNeon, RoundedCornerShape(20.dp))
+                .testTag("tv_pairing_dialog"),
+            color = TvSurface,
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📱", fontSize = 22.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Web-Companion Kopplung",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                    TvButton(onClick = onDismiss) {
+                        Text("✕", fontSize = 14.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // QR Code Box
+                    Box(
+                        modifier = Modifier
+                            .size(200.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White)
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.foundation.Image(
+                            bitmap = qrImageBitmap,
+                            contentDescription = "QR Code zur Kopplung mit der Web-App",
+                            modifier = Modifier.size(184.dp)
+                        )
+                    }
+
+                    // Instructions & Auth Status
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "1. Kamera-App auf Smartphone öffnen",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "2. QR-Code scannen (übernimmt TMDb & Region)",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "3. Titel suchen und mit 1 Klick auf den TV senden",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Cloud Sync Badge / Account
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = TvCardBg,
+                            border = BorderStroke(1.dp, if (currentUser != null) CyanPrimary else AmberAccent)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    text = if (currentUser != null) "☁️ Cloud-Sync aktiv" else "☁️ Cloud-Sync",
+                                    color = if (currentUser != null) CyanNeon else AmberAccent,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = currentUser?.email ?: syncStatusText,
+                                    color = Color.LightGray,
+                                    fontSize = 11.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Actions Footer
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (currentUser == null) {
+                        TvButton(
+                            onClick = onSignInWithGoogle,
+                            isPrimary = true,
+                            modifier = Modifier.testTag("google_signin_button")
+                        ) {
+                            Text(
+                                text = "Mit Google anmelden",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    } else {
+                        TvButton(
+                            onClick = onSignOut,
+                            modifier = Modifier.testTag("google_signout_button")
+                        ) {
+                            Text(
+                                text = "Abmelden",
+                                color = Color.White,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    TvButton(onClick = onDismiss, isPrimary = currentUser != null) {
+                        Text(
+                            text = "Fertig",
+                            color = if (currentUser != null) Color.Black else Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

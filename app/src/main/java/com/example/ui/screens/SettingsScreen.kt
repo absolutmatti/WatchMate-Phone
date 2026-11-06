@@ -75,11 +75,14 @@ fun SettingsScreen(
     subscribedProviders: Set<String>,
     currentRegion: String,
     apiKey: String,
+    currentUser: com.google.firebase.auth.FirebaseUser? = null,
+    syncStatusText: String = "Bereit",
     onTabSelected: (NavTab) -> Unit,
     onToggleProvider: (String) -> Unit,
     onSetRegion: (String) -> Unit,
     onSaveApiKey: (String) -> Unit,
     onReloadSampleData: () -> Unit,
+    onOpenPairingDialog: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -98,7 +101,8 @@ fun SettingsScreen(
         // Navigation Bar
         TvNavigationBar(
             currentTab = currentTab,
-            onTabSelected = onTabSelected
+            onTabSelected = onTabSelected,
+            onOpenPairingDialog = onOpenPairingDialog
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -124,6 +128,61 @@ fun SettingsScreen(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // SECTION 0: Web-Companion & Smartphone-Kopplung
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp)),
+                color = TvSurface,
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, CyanNeon)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "📱 Mobile Web-Companion App (PWA)",
+                                color = CyanNeon,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Scanne den QR-Code, um Filme & Serien bequem vom Smartphone aus auf deinen Fernseher zu übertragen.",
+                                color = Color.LightGray,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (currentUser != null) "☁️ Angemeldet als: ${currentUser.email ?: currentUser.displayName ?: currentUser.uid}" else "☁️ Status: $syncStatusText",
+                                color = if (currentUser != null) GreenWatched else AmberAccent,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        TvButton(
+                            onClick = onOpenPairingDialog,
+                            isPrimary = true,
+                            modifier = Modifier.testTag("btn_open_pairing_qr")
+                        ) {
+                            Text(
+                                text = "QR-Code anzeigen ▶",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
