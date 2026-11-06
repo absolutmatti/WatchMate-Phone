@@ -1,0 +1,6 @@
+{
+  "name": "WatchMate TV",
+  "description": "Lokale Film- und Serien-Watchlist optimiert für Android TV mit TMDb-Suche, Streaming-Verfügbarkeit und Episoden-Tracker.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
