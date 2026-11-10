@@ -72,8 +72,14 @@ class WatchlistViewModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _searchSuggestions = MutableStateFlow<List<TMDbSearchItem>>(emptyList())
+    val searchSuggestions: StateFlow<List<TMDbSearchItem>> = _searchSuggestions.asStateFlow()
+
     private val _searchResults = MutableStateFlow<List<TMDbSearchItem>>(emptyList())
     val searchResults: StateFlow<List<TMDbSearchItem>> = _searchResults.asStateFlow()
+
+    private val _hasSubmittedSearch = MutableStateFlow(false)
+    val hasSubmittedSearch: StateFlow<Boolean> = _hasSubmittedSearch.asStateFlow()
 
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
@@ -268,17 +274,49 @@ class WatchlistViewModel(
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+        _hasSubmittedSearch.value = false
         searchJob?.cancel()
         val trimmed = query.trim()
         if (trimmed.length >= 2) {
             searchJob = viewModelScope.launch {
-                delay(450) // 450ms debounce prevents freezing/stuttering while typing on TV keyboard
+                delay(280) // Fast 280ms debounce for text suggestions (no heavy image loads)
+                _isSearching.value = true
+                try {
+                    val rawResults = repository.searchTitles(trimmed)
+                    // Extract distinct text suggestions (e.g. top 8) without rendering heavy poster cards
+                    val suggestions = rawResults
+                        .distinctBy { it.displayTitle.lowercase().trim() }
+                        .take(8)
+                    _searchSuggestions.value = suggestions
+                } catch (e: Exception) {
+                    android.util.Log.e("WatchlistViewModel", "Suggestions failed: ${e.message}")
+                    _searchSuggestions.value = emptyList()
+                } finally {
+                    _isSearching.value = false
+                }
+            }
+        } else {
+            _searchSuggestions.value = emptyList()
+            _searchResults.value = emptyList()
+            _isSearching.value = false
+        }
+    }
+
+    fun performSearch(query: String) {
+        searchJob?.cancel()
+        val trimmed = query.trim()
+        _searchQuery.value = trimmed
+        _hasSubmittedSearch.value = true
+        _searchSuggestions.value = emptyList()
+        if (trimmed.length >= 2) {
+            searchJob = viewModelScope.launch {
                 _isSearching.value = true
                 try {
                     val results = repository.searchTitles(trimmed)
                     _searchResults.value = results
                 } catch (e: Exception) {
-                    android.util.Log.e("WatchlistViewModel", "Search failed: ${e.message}")
+                    android.util.Log.e("WatchlistViewModel", "Immediate search failed: ${e.message}")
+                    _searchResults.value = emptyList()
                 } finally {
                     _isSearching.value = false
                 }
@@ -289,22 +327,9 @@ class WatchlistViewModel(
         }
     }
 
-    fun performSearch(query: String) {
-        searchJob?.cancel()
-        val trimmed = query.trim()
-        if (trimmed.length >= 2) {
-            searchJob = viewModelScope.launch {
-                _isSearching.value = true
-                try {
-                    val results = repository.searchTitles(trimmed)
-                    _searchResults.value = results
-                } catch (e: Exception) {
-                    android.util.Log.e("WatchlistViewModel", "Immediate search failed: ${e.message}")
-                } finally {
-                    _isSearching.value = false
-                }
-            }
-        }
+    fun onSuggestionClicked(suggestion: TMDbSearchItem) {
+        _searchQuery.value = suggestion.displayTitle
+        performSearch(suggestion.displayTitle)
     }
 
     fun onSearchItemClicked(searchItem: TMDbSearchItem) {

@@ -168,7 +168,7 @@ class UserPreferences(context: Context) {
 
     companion object {
         const val DEFAULT_KEY = "1b490ff6b2d76245e0c8503271f5f094"
-        const val DEFAULT_COMPANION_URL = "https://absolutmatti.github.io/WatchMate-New/web-companion/"
+        const val DEFAULT_COMPANION_URL = "https://absolutmatti.github.io/WatchMate-Phone/web-companion/"
         private const val KEY_PROVIDERS = "subscribed_providers"
         private const val KEY_REGION = "tmdb_region"
         private const val KEY_API_KEY = "tmdb_api_key"

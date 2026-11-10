@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -92,13 +93,24 @@ import com.example.ui.theme.TvFocusBg
 import com.example.ui.theme.TvFocusBorder
 import com.example.ui.theme.TvSurface
 
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+
 @Composable
 fun SearchScreen(
     searchQuery: String,
+    searchSuggestions: List<TMDbSearchItem>,
     searchResults: List<TMDbSearchItem>,
     isSearching: Boolean,
+    hasSubmittedSearch: Boolean,
     onQueryChanged: (String) -> Unit,
     onSearchSubmit: (String) -> Unit,
+    onSuggestionClicked: (TMDbSearchItem) -> Unit,
     onSearchItemClicked: (TMDbSearchItem) -> Unit,
     onBack: () -> Unit,
     existingWatchlistIds: Set<Long>,
@@ -107,7 +119,7 @@ fun SearchScreen(
     BackHandler { onBack() }
     val context = LocalContext.current
 
-    // Local decoupled text state for 0ms typing response without triggering whole-app recomposition
+    // Local decoupled text state for 0ms typing response without triggering heavy recomposition
     var localText by remember { mutableStateOf(searchQuery) }
 
     LaunchedEffect(searchQuery) {
@@ -118,7 +130,7 @@ fun SearchScreen(
 
     LaunchedEffect(localText) {
         if (localText != searchQuery) {
-            delay(400)
+            delay(280)
             onQueryChanged(localText)
         }
     }
@@ -173,7 +185,7 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Search Input Bar with Microphone Button
+        // Search Input Bar with Submit Button and Microphone Button
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -183,7 +195,7 @@ fun SearchScreen(
                 value = localText,
                 onValueChange = { localText = it },
                 placeholder = {
-                    Text("Film oder Serie eingeben (z. B. Spid, Dune, Arcane)...", color = Color.Gray, fontSize = 14.sp)
+                    Text("Film oder Serie eingeben (z. B. Der Herr, Spid, Dune)...", color = Color.Gray, fontSize = 14.sp)
                 },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null, tint = CyanNeon)
@@ -201,8 +213,10 @@ fun SearchScreen(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = {
-                    onQueryChanged(localText)
-                    onSearchSubmit(localText)
+                    if (localText.isNotBlank()) {
+                        onQueryChanged(localText)
+                        onSearchSubmit(localText)
+                    }
                 }),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = TvFocusBorder,
@@ -218,6 +232,31 @@ fun SearchScreen(
                     .weight(1f)
                     .testTag("search_input_field")
             )
+
+            // Explicit Suchen Button for D-Pad / Remote Navigation
+            TvButton(
+                onClick = {
+                    if (localText.isNotBlank()) {
+                        onQueryChanged(localText)
+                        onSearchSubmit(localText)
+                    }
+                },
+                isPrimary = true,
+                modifier = Modifier
+                    .height(56.dp)
+                    .testTag("submit_search_button")
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Suchen",
+                        tint = Color.Black,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Suchen", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
 
             // Voice Search Button
             TvButton(
@@ -240,7 +279,7 @@ fun SearchScreen(
                         ).show()
                     }
                 },
-                isPrimary = true,
+                isPrimary = false,
                 modifier = Modifier
                     .height(56.dp)
                     .testTag("voice_search_button")
@@ -249,16 +288,16 @@ fun SearchScreen(
                     Icon(
                         imageVector = Icons.Default.Mic,
                         contentDescription = "Sprachsuche",
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Sprachsuche", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("Sprachsuche", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Subtle non-blocking progress bar during typing/search updates
         if (isSearching) {
@@ -274,66 +313,314 @@ fun SearchScreen(
             Spacer(modifier = Modifier.height(13.dp))
         }
 
-        // Search Results State: Never destroy grid while user is typing if results exist!
-        if (isSearching && searchResults.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = TvFocusBorder)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Suche bei TMDb...", color = Color.Gray, fontSize = 14.sp)
+        // --- DISPLAY LOGIC: GOOGLE-STYLE SUGGESTIONS vs. POSTER CARDS ---
+        if (!hasSubmittedSearch) {
+            // SUGGESTIONS MODE (No heavy poster image decodes while typing!)
+            if (localText.trim().length >= 2) {
+                if (searchSuggestions.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("search_suggestions_container")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Suchvorschläge (mit D-Pad auswählen oder Enter drücken):",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "${searchSuggestions.size} Treffer",
+                                color = Color(0xFF64748B),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("search_suggestions_list")
+                        ) {
+                            items(searchSuggestions, key = { "sugg_${it.id}_${it.resolvedMediaType}" }) { item ->
+                                SearchSuggestionRow(
+                                    item = item,
+                                    onSelect = { onSuggestionClicked(item) }
+                                )
+                            }
+                        }
+                    }
+                } else if (isSearching) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = TvFocusBorder, modifier = Modifier.size(36.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Suche Vorschläge für \"$localText\"...", color = Color.Gray, fontSize = 14.sp)
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Keine Vorschläge für \"$localText\".\nDrücke auf \"Suchen\" für die Volltextsuche.",
+                                color = Color.Gray,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TvButton(
+                                onClick = {
+                                    onQueryChanged(localText)
+                                    onSearchSubmit(localText)
+                                },
+                                isPrimary = true
+                            ) {
+                                Text("Jetzt \"$localText\" suchen", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+                    }
                 }
-            }
-        } else if (searchResults.isEmpty() && searchQuery.isNotBlank()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Keine Treffer für \"$searchQuery\" gefunden.\nVersuche einen anderen Titel.",
-                    color = Color.Gray,
-                    fontSize = 15.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else if (searchResults.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Tippe oben einen Filmtitel ein oder nutze die Sprachsuche,\num live in der Filmdatenbank zu suchen.",
-                    color = Color.Gray,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
-                )
+            } else {
+                // Idle hint
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(56.dp)
+                        )
+                        Text(
+                            text = "Schnelle TV-Suche wie bei Google",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Tippe mindestens 2 Buchstaben ein (z. B. 'Der Herr'), um sofort Vorschläge als Text zu sehen.\nDie Kacheln laden erst nach Bestätigung mit der Lupe oder Enter.",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.widthIn(max = 520.dp)
+                        )
+                    }
+                }
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 145.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("search_results_grid")
-            ) {
-                items(searchResults, key = { it.id }, contentType = { "search_card" }) { item ->
-                    val isAlreadyInList = existingWatchlistIds.contains(item.id)
-                    SearchResultCard(
-                        item = item,
-                        isAlreadyInList = isAlreadyInList,
-                        onClick = { onSearchItemClicked(item) }
-                    )
+            // RESULTS GRID MODE (Shown only after submitting search or selecting suggestion)
+            if (isSearching && searchResults.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = TvFocusBorder, modifier = Modifier.size(40.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text("Lade Filmergebnisse von TMDb...", color = Color.Gray, fontSize = 14.sp)
+                    }
                 }
+            } else if (searchResults.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Keine Treffer für \"$searchQuery\" gefunden.\nVersuche einen anderen Titel oder prüfe die Schreibweise.",
+                            color = Color.Gray,
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Ergebnisse für \"$searchQuery\" (${searchResults.size}):",
+                            color = Color(0xFFE2E8F0),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 145.dp),
+                        contentPadding = PaddingValues(bottom = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("search_results_grid")
+                    ) {
+                        items(searchResults, key = { it.id }, contentType = { "search_card" }) { item ->
+                            val isAlreadyInList = existingWatchlistIds.contains(item.id)
+                            SearchResultCard(
+                                item = item,
+                                isAlreadyInList = isAlreadyInList,
+                                onClick = { onSearchItemClicked(item) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Super lightweight, zero-overhead text suggestion row for Google-like TV search.
+ * No image decodes, instant render, smooth 60fps D-Pad navigation.
+ */
+@Composable
+fun SearchSuggestionRow(
+    item: TMDbSearchItem,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.02f else 1.0f,
+        animationSpec = tween(120),
+        label = "suggestion_scale"
+    )
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(RoundedCornerShape(10.dp))
+            .border(
+                width = if (isFocused) 2.5.dp else 1.dp,
+                color = if (isFocused) TvFocusBorder else Color(0xFF1E293B),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .focusable(interactionSource = interactionSource)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onSelect
+            )
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown &&
+                    (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter)
+                ) {
+                    onSelect()
+                    true
+                } else {
+                    false
+                }
+            }
+            .testTag("search_suggestion_${item.id}"),
+        color = if (isFocused) TvFocusBg else TvSurface,
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon matching Google search suggestions
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = if (isFocused) TvFocusBorder else Color(0xFF64748B),
+                modifier = Modifier.size(18.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Title
+            Text(
+                text = item.displayTitle,
+                color = if (isFocused) TvFocusBorder else Color.White,
+                fontSize = 15.sp,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Year
+            if (item.displayYear.isNotBlank()) {
+                Text(
+                    text = item.displayYear,
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Normal
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+
+            // Media Badge
+            Surface(
+                color = if (item.resolvedMediaType == "movie") Color(0x3338BDF8) else Color(0x33A855F7),
+                shape = RoundedCornerShape(4.dp)
+            ) {
+                Text(
+                    text = if (item.resolvedMediaType == "movie") "Film" else "Serie",
+                    color = if (item.resolvedMediaType == "movie") Color(0xFF7DD3FC) else Color(0xFFD8B4FE),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+
+            if (isFocused) {
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Auswählen ↵",
+                    color = TvFocusBorder,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

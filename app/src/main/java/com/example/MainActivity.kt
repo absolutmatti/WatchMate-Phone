@@ -85,7 +85,9 @@ fun WatchMateTvApp(viewModel: WatchlistViewModel) {
     val filterState by viewModel.filterState.collectAsStateWithLifecycle()
     val selectedItem by viewModel.selectedItem.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val searchSuggestions by viewModel.searchSuggestions.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val hasSubmittedSearch by viewModel.hasSubmittedSearch.collectAsStateWithLifecycle()
     val isSearching by viewModel.isSearching.collectAsStateWithLifecycle()
     val subscribedProviders by viewModel.subscribedProviders.collectAsStateWithLifecycle()
     val currentRegion by viewModel.currentRegion.collectAsStateWithLifecycle()
@@ -166,10 +168,13 @@ fun WatchMateTvApp(viewModel: WatchlistViewModel) {
                     val existingIds = rawItems.map { it.id }.toSet()
                     SearchScreen(
                         searchQuery = searchQuery,
+                        searchSuggestions = searchSuggestions,
                         searchResults = searchResults,
                         isSearching = isSearching,
+                        hasSubmittedSearch = hasSubmittedSearch,
                         onQueryChanged = { viewModel.onSearchQueryChanged(it) },
                         onSearchSubmit = { viewModel.performSearch(it) },
+                        onSuggestionClicked = { viewModel.onSuggestionClicked(it) },
                         onSearchItemClicked = { viewModel.onSearchItemClicked(it) },
                         onBack = { viewModel.setTab(NavTab.ALL) },
                         existingWatchlistIds = existingIds
