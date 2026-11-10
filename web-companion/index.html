@@ -119,6 +119,8 @@
         <button class="filter-pill active" data-filter="ALL">Alle</button>
         <button class="filter-pill" data-filter="PLAN_TO_WATCH">Geplant</button>
         <button class="filter-pill" data-filter="WATCHING">Schaue ich</button>
+        <button class="filter-pill" data-filter="WATCHED">Gesehen</button>
+        <button class="filter-pill" data-filter="DROPPED">Abgebrochen</button>
         <button class="filter-pill" data-filter="movie">Filme</button>
         <button class="filter-pill" data-filter="tv">Serien</button>
       </div>
@@ -132,6 +134,98 @@
       <div id="watchlistGrid" class="media-list"></div>
     </main>
 
+  </div>
+
+  <!-- MODAL: DETAILANSICHT (Filme & Serien mit Status-Auswahl) -->
+  <div id="detailModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="modal-sheet detail-sheet">
+      <!-- High-Res Backdrop Header -->
+      <div class="detail-hero" id="detailHero">
+        <div class="detail-hero-overlay"></div>
+        <button id="closeDetailBtn" class="detail-close-btn" aria-label="Schließen">✕</button>
+        <div class="detail-hero-content">
+          <div class="detail-poster-wrap">
+            <img id="detailPoster" class="detail-poster" src="" alt="Poster" />
+          </div>
+          <div class="detail-header-info">
+            <span id="detailTypeBadge" class="media-type-badge">Film</span>
+            <h2 id="detailTitle" class="detail-title">Titel</h2>
+            <div class="detail-meta-row">
+              <span id="detailYear">2024</span>
+              <span id="detailRuntimeOrSeasons">• 120 Min.</span>
+              <span id="detailRating" class="rating-badge">★ 8.2</span>
+              <span id="detailAgeRating" class="age-badge">FSK 12</span>
+            </div>
+            <div id="detailGenres" class="detail-genres-row"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail Body & Actions -->
+      <div class="modal-body detail-body">
+        <!-- Status-Auswahl (Schnell-Umschalter) -->
+        <div class="detail-section status-section">
+          <div class="status-section-header">
+            <h3>🔄 Status auf deinem TV</h3>
+            <span id="detailCurrentStatusBadge" class="status-pill offline">Noch nicht in Liste</span>
+          </div>
+          <div class="status-selector-grid">
+            <button type="button" class="status-choice-btn" data-status="PLAN_TO_WATCH" id="statusChoicePlan">
+              <span class="status-choice-icon">📋</span>
+              <span class="status-choice-label">Noch nicht gesehen</span>
+            </button>
+            <button type="button" class="status-choice-btn" data-status="WATCHING" id="statusChoiceWatching">
+              <span class="status-choice-icon">▶️</span>
+              <span class="status-choice-label">Gerade am ansehen</span>
+            </button>
+            <button type="button" class="status-choice-btn" data-status="WATCHED" id="statusChoiceWatched">
+              <span class="status-choice-icon">✅</span>
+              <span class="status-choice-label">Gesehen</span>
+            </button>
+            <button type="button" class="status-choice-btn" data-status="DROPPED" id="statusChoiceDropped">
+              <span class="status-choice-icon">🗑️</span>
+              <span class="status-choice-label">Abgebrochen</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Serien Episoden-Tracker -->
+        <div id="detailEpisodeTracker" class="detail-section hidden">
+          <div class="episode-tracker-header">
+            <h3>📺 Episoden-Tracker</h3>
+            <span id="detailEpisodeProgressText" class="ep-badge">Staffel 1 • Episode 1</span>
+          </div>
+          <div class="episode-control-row">
+            <button id="detailPrevEpBtn" class="btn btn-outline ep-stepper-btn">-1 Folge</button>
+            <button id="detailNextEpBtn" class="btn btn-primary ep-stepper-btn">+1 Folge ▶</button>
+          </div>
+        </div>
+
+        <!-- Streaming Anbieter -->
+        <div class="detail-section">
+          <h3>🍿 Wo kann ich es streamen?</h3>
+          <div id="detailStreamingProviders" class="detail-providers-list">
+            <span class="provider-pill">Wird geladen...</span>
+          </div>
+        </div>
+
+        <!-- Handlung / Beschreibung -->
+        <div class="detail-section">
+          <h3>📖 Handlung</h3>
+          <p id="detailOverview" class="detail-overview-text">Keine Beschreibung vorhanden.</p>
+        </div>
+
+        <!-- Buttons: Trailer & Entfernen -->
+        <div class="detail-actions-row">
+          <a id="detailTrailerBtn" class="btn btn-outline trailer-link hidden" target="_blank" rel="noopener noreferrer">
+            🎞️ Trailer ansehen (YouTube)
+          </a>
+          <button id="detailRemoveBtn" class="btn btn-danger-Ghost hidden">
+            🗑️ Von TV-Watchlist löschen
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Toast-Benachrichtigung (Unten) -->

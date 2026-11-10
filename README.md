@@ -66,9 +66,12 @@ Der **WatchMate TV Web-Companion** ist eine mobile Progressive Web App (PWA), mi
 
 ### 🚀 Highlights des Web-Companions:
 - 📱 **Kein App-Store-Download nötig:** Sofort im mobilen Browser (Safari, Chrome, Firefox) als PWA auf dem Homescreen installierbar.
-- ⚡ **TMDb-Echtzeitsuche (300 ms Debounce):** Schnelle Suche nach Filmen und TV-Serien mit weltweiten Metadaten und deutscher FSK-Einstufung.
-- 🍿 **Streaming-Anbieter (DE 🇩🇪, AT 🇦🇹, CH 🇨🇭):** Zeigt sofort an, ob ein Titel bei Netflix, Prime Video, Disney+, WOW, Apple TV+ usw. verfügbar ist.
-- 🔄 **Echtzeit-Synchronisation (Firebase Firestore):** Titel, die du auf dem Smartphone hinzufügst oder entfernst, erscheinen in Sekundenbruchteilen live auf deinem Fernseher.
+- 🎬 **Kinoreife Detailansicht:** Klick auf eine Film- oder Serien-Karte öffnet das hochauflösende Backdrop-Szenenbild, deutsche Inhaltsangabe, Genres, Altersfreigabe (FSK), Laufzeit bzw. Staffelanzahl und direkte YouTube-Trailer-Verlinkung.
+- 🔄 **Status auf dem TV ändern:** Wähle direkt in der Web-App zwischen *Noch nicht gesehen*, *Gerade am ansehen*, *Gesehen* und *Abgebrochen* – der Status synchronisiert sich in Echtzeit mit deinem Android TV!
+- 📺 **Intelligenter Episoden-Tracker:** Verfolge und steuere deine Serienfolgen (*+1 Folge* / *-1 Folge*) bequem vom Sofa aus auf dem Smartphone.
+- ⚡ **TMDb-Echtzeitsuche:** Schnelle Suche nach Filmen und TV-Serien mit weltweiten Metadaten und deutscher FSK-Einstufung.
+- 🍿 **Streaming-Anbieter (DE 🇩🇪, AT 🇦🇹, CH 🇨🇭):** Zeigt sofort an, wo ein Titel (im Abo, kostenlos oder zum Leihen/Kaufen) verfügbar ist.
+- 🔄 **Echtzeit-Synchronisation (Firebase Firestore):** Synchronisiert Änderungen nahtlos zwischen Android TV und deinem Smartphone.
 - 📶 **Offline-Fähig:** Funktioniert dank Service Worker auch bei schlechter Internetverbindung.
 
 ---

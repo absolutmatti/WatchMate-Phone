@@ -155,7 +155,8 @@ const state = {
   watchlistMap: new Map(), // Key: String(id), Value: WatchlistItem
   activeTab: "search",
   activeFilter: "ALL",
-  searchResults: [...CURATED_STARTER_CATALOG]
+  searchResults: [...CURATED_STARTER_CATALOG],
+  currentDetailItem: null
 };
 
 // URL-Parameter aus QR-Code vom Fernseher auslesen (z. B. ?tmdb_key=...&region=DE)
@@ -314,8 +315,11 @@ async function addOrUpdateWatchlistItem(mediaItem, targetStatus = "PLAN_TO_WATCH
       typeof enriched.seasonEpisodeCount === "string"
         ? enriched.seasonEpisodeCount
         : JSON.stringify(enriched.seasonEpisodeCount || {}),
+    genres: enriched.genres || existing?.genres || "",
+    runtime: Number(enriched.runtime || existing?.runtime || 0),
+    trailerYoutubeKey: enriched.trailerYoutubeKey || existing?.trailerYoutubeKey || "",
     addedAt: existing?.addedAt || now,
-    lastWatchedAt: targetStatus === "WATCHING" ? now : existing?.lastWatchedAt || 0,
+    lastWatchedAt: targetStatus === "WATCHING" || targetStatus === "WATCHED" ? now : existing?.lastWatchedAt || 0,
     streamingProviders:
       typeof enriched.streamingProviders === "string"
         ? enriched.streamingProviders
@@ -327,6 +331,7 @@ async function addOrUpdateWatchlistItem(mediaItem, targetStatus = "PLAN_TO_WATCH
   state.watchlistMap.set(String(payload.id), payload);
   saveLocalWatchlistBackup();
   renderAll();
+  updateDetailModalIfOpen(payload.id);
 
   // In Cloud Firestore speichern (/users/{userId}/watchlist/{itemId})
   if (state.currentUser && state.firestoreDb) {
@@ -347,7 +352,13 @@ async function addOrUpdateWatchlistItem(mediaItem, targetStatus = "PLAN_TO_WATCH
         },
         { merge: true }
       );
-      showToast(`✅ „${payload.title}“ gespeichert! Sofort auf deinem TV verfügbar.`);
+      const statusNames = {
+        PLAN_TO_WATCH: "„Noch nicht gesehen“",
+        WATCHING: "„Gerade am ansehen“",
+        WATCHED: "„Gesehen“",
+        DROPPED: "„Abgebrochen“"
+      };
+      showToast(`✅ „${payload.title}“ auf ${statusNames[targetStatus] || targetStatus} gesetzt!`);
     } catch (err) {
       console.error("Firestore Write Error:", err);
       showToast("⚠️ Lokal gespeichert (Cloud-Schreibfehler)");
@@ -355,6 +366,19 @@ async function addOrUpdateWatchlistItem(mediaItem, targetStatus = "PLAN_TO_WATCH
   } else {
     showToast(`📌 „${payload.title}“ gespeichert! (Konto verbinden für Live-TV-Sync)`);
   }
+}
+
+async function changeItemStatus(itemId, targetStatus) {
+  let item = state.watchlistMap.get(String(itemId));
+  if (!item) {
+    const searchMatch = state.searchResults.find((x) => String(x.id) === String(itemId));
+    if (searchMatch) {
+      await addOrUpdateWatchlistItem(searchMatch, targetStatus);
+      return;
+    }
+    return;
+  }
+  await addOrUpdateWatchlistItem(item, targetStatus);
 }
 
 async function incrementEpisode(itemId) {
@@ -377,7 +401,7 @@ async function incrementEpisode(itemId) {
       nextSeason += 1;
       nextEp = 1;
     } else if (item.totalSeasons > 0 && nextSeason >= item.totalSeasons) {
-      item.status = "COMPLETED";
+      item.status = "WATCHED";
       nextEp = maxEpInCurrentSeason;
     }
   }
@@ -390,6 +414,45 @@ async function incrementEpisode(itemId) {
   state.watchlistMap.set(String(item.id), item);
   saveLocalWatchlistBackup();
   renderAll();
+  updateDetailModalIfOpen(item.id);
+
+  if (state.currentUser && state.firestoreDb) {
+    const itemRef = doc(state.firestoreDb, "users", state.currentUser.uid, "watchlist", String(item.id));
+    await setDoc(itemRef, { ...item, updatedAt: serverTimestamp() }, { merge: true });
+  }
+  showToast(`📺 ${item.title}: S${item.currentSeason} • E${item.currentEpisode}`);
+}
+
+async function decrementEpisode(itemId) {
+  const item = state.watchlistMap.get(String(itemId));
+  if (!item || item.mediaType !== "tv") return;
+
+  if (navigator.vibrate) navigator.vibrate(25);
+
+  let season = item.currentSeason || 1;
+  let ep = (item.currentEpisode || 1) - 1;
+
+  if (ep < 1) {
+    if (season > 1) {
+      season -= 1;
+      let seasonMap = {};
+      try {
+        seasonMap = JSON.parse(item.seasonEpisodeCount || "{}");
+      } catch (_) {}
+      ep = seasonMap[String(season)] || 1;
+    } else {
+      ep = 1;
+    }
+  }
+
+  item.currentSeason = season;
+  item.currentEpisode = ep;
+  item.lastWatchedAt = Date.now();
+
+  state.watchlistMap.set(String(item.id), item);
+  saveLocalWatchlistBackup();
+  renderAll();
+  updateDetailModalIfOpen(item.id);
 
   if (state.currentUser && state.firestoreDb) {
     const itemRef = doc(state.firestoreDb, "users", state.currentUser.uid, "watchlist", String(item.id));
@@ -405,6 +468,7 @@ async function removeWatchlistItem(itemId) {
   state.watchlistMap.delete(String(itemId));
   saveLocalWatchlistBackup();
   renderAll();
+  updateDetailModalIfOpen(itemId);
 
   if (state.currentUser && state.firestoreDb) {
     const itemRef = doc(state.firestoreDb, "users", state.currentUser.uid, "watchlist", String(itemId));
@@ -505,33 +569,89 @@ async function performTmdbSearch(query) {
 }
 
 async function enrichMediaDetailsIfNeeded(item) {
-  if (item._detailsLoaded || !state.tmdbKey) return item;
+  if (item._detailsLoaded && item.genres && (item.runtime || item.totalSeasons)) return item;
+
+  if (!state.tmdbKey) return item;
 
   try {
     const append =
-      item.mediaType === "movie" ? "watch/providers,release_dates" : "watch/providers,content_ratings";
+      item.mediaType === "movie"
+        ? "watch/providers,release_dates,videos"
+        : "watch/providers,content_ratings,videos";
     const url = buildTmdbUrl(`/${item.mediaType}/${item.id}`, { append_to_response: append });
     const res = await fetch(url, getTmdbFetchOptions());
     if (!res.ok) return item;
 
     const details = await res.json();
 
+    // Backdrop & Overview vervollständigen falls fehlend
+    if (details.backdrop_path && !item.backdropPath) item.backdropPath = details.backdrop_path;
+    if (details.poster_path && !item.posterPath) item.posterPath = details.poster_path;
+    if (details.overview && (!item.overview || item.overview.length < 10)) item.overview = details.overview;
+    if (details.release_date && !item.releaseDate) item.releaseDate = details.release_date;
+    if (details.first_air_date && !item.releaseDate) item.releaseDate = details.first_air_date;
+
+    // Genres
+    if (details.genres && Array.isArray(details.genres)) {
+      item.genres = details.genres.map((g) => g.name).join(", ");
+    }
+
+    // Laufzeit bei Filmen
+    if (details.runtime) {
+      item.runtime = details.runtime;
+    }
+
     // 1. Streaming-Provider in der gewählten Region (DE / AT / CH)
-    const regionProviders = details["watch/providers"]?.results?.[state.region];
+    const regionProviders = details["watch/providers"]?.results?.[state.region] || details["watch/providers"]?.results?.["DE"];
     const flatrateList = [
       ...(regionProviders?.flatrate || []),
-      ...(regionProviders?.free || [])
+      ...(regionProviders?.free || []),
+      ...(regionProviders?.ads || [])
     ];
+    const buyRentList = [
+      ...(regionProviders?.buy || []),
+      ...(regionProviders?.rent || [])
+    ];
+
     const matchedSlugs = new Set();
+    const providersArray = [];
+
     flatrateList.forEach((p) => {
       const match = SUPPORTED_PROVIDERS.find((sp) => sp.tmdbIds.includes(p.provider_id));
       if (match) matchedSlugs.add(match.id);
+      providersArray.push({
+        name: p.provider_name,
+        logo: p.logo_path,
+        type: "flatrate"
+      });
     });
+
+    buyRentList.forEach((p) => {
+      providersArray.push({
+        name: p.provider_name,
+        logo: p.logo_path,
+        type: "buy_rent"
+      });
+    });
+
     item.streamingProviders = Array.from(matchedSlugs);
+    item.fullProvidersList = providersArray;
+
+    // YouTube Trailer suchen (bevorzugt deutsch oder offizieller Trailer)
+    const videos = details.videos?.results || [];
+    const ytTrailer =
+      videos.find((v) => v.site === "YouTube" && v.type === "Trailer" && (v.iso_639_1 === "de" || v.name.toLowerCase().includes("deutsch") || v.name.toLowerCase().includes("german"))) ||
+      videos.find((v) => v.site === "YouTube" && v.type === "Trailer") ||
+      videos.find((v) => v.site === "YouTube" && v.type === "Teaser") ||
+      videos.find((v) => v.site === "YouTube");
+    if (ytTrailer) {
+      item.trailerYoutubeKey = ytTrailer.key;
+    }
 
     // 2. Serien-Staffeln & Episodenanzahl
     if (item.mediaType === "tv") {
       item.totalSeasons = details.number_of_seasons || 0;
+      item.numberOfEpisodes = details.number_of_episodes || 0;
       const epMap = {};
       (details.seasons || []).forEach((s) => {
         if (s.season_number > 0) {
@@ -659,6 +779,198 @@ function createMediaCardHTML(item, isWatchlistTab = false) {
       ${actionsHTML}
     </article>
   `;
+}
+
+function updateDetailModalIfOpen(itemId) {
+  if (!state.currentDetailItem || String(state.currentDetailItem.id) !== String(itemId)) return;
+  const fresh = state.watchlistMap.get(String(itemId)) || state.currentDetailItem;
+  renderDetailModalContent(fresh);
+}
+
+async function openDetailModal(item) {
+  state.currentDetailItem = item;
+  const modal = document.getElementById("detailModal");
+  modal.classList.remove("hidden");
+  renderDetailModalContent(item);
+
+  // Im Hintergrund tiefe Details (Genres, Trailer, Provider, Laufzeit) nachladen falls nötig
+  const enriched = await enrichMediaDetailsIfNeeded(item);
+  if (state.currentDetailItem && String(state.currentDetailItem.id) === String(enriched.id)) {
+    state.currentDetailItem = { ...state.currentDetailItem, ...enriched };
+    renderDetailModalContent(state.currentDetailItem);
+  }
+}
+
+function closeDetailModal() {
+  const modal = document.getElementById("detailModal");
+  modal.classList.add("hidden");
+  state.currentDetailItem = null;
+}
+
+function renderDetailModalContent(item) {
+  const savedItem = state.watchlistMap.get(String(item.id));
+  const isSaved = Boolean(savedItem);
+  const currentStatus = savedItem?.status || null;
+
+  // 1. Hero Backdrop
+  const heroEl = document.getElementById("detailHero");
+  const backdropUrl = item.backdropPath
+    ? (item.backdropPath.startsWith("http") ? item.backdropPath : `https://image.tmdb.org/t/p/w780${item.backdropPath}`)
+    : "";
+  if (backdropUrl) {
+    heroEl.style.backgroundImage = `url("${backdropUrl}")`;
+  } else {
+    heroEl.style.backgroundImage = "none";
+    heroEl.style.backgroundColor = "var(--bg-surface-elevated)";
+  }
+
+  // 2. Poster
+  const posterEl = document.getElementById("detailPoster");
+  const posterUrl = item.posterPath
+    ? (item.posterPath.startsWith("http") ? item.posterPath : `https://image.tmdb.org/t/p/w342${item.posterPath}`)
+    : "https://via.placeholder.com/342x513/0E162B/38BDF8?text=WatchMate+TV";
+  posterEl.src = posterUrl;
+  posterEl.alt = item.title;
+
+  // 3. Typ & Titel
+  document.getElementById("detailTypeBadge").textContent = item.mediaType === "tv" ? "Serie" : "Film";
+  document.getElementById("detailTitle").textContent = item.title;
+
+  // 4. Meta-Zeile: Jahr, Laufzeit / Staffeln, Rating, FSK
+  const year = (item.releaseDate || "").slice(0, 4) || "—";
+  document.getElementById("detailYear").textContent = year;
+
+  const runtimeOrSeasonsEl = document.getElementById("detailRuntimeOrSeasons");
+  if (item.mediaType === "tv") {
+    const seasons = item.totalSeasons || 1;
+    const epCount = item.numberOfEpisodes ? ` (${item.numberOfEpisodes} Folgen)` : "";
+    runtimeOrSeasonsEl.textContent = `• ${seasons} ${seasons === 1 ? "Staffel" : "Staffeln"}${epCount}`;
+  } else if (item.runtime && item.runtime > 0) {
+    const h = Math.floor(item.runtime / 60);
+    const m = item.runtime % 60;
+    runtimeOrSeasonsEl.textContent = `• ${h > 0 ? `${h}h ` : ""}${m}m`;
+  } else {
+    runtimeOrSeasonsEl.textContent = "";
+  }
+
+  const ratingEl = document.getElementById("detailRating");
+  if (item.voteAverage && Number(item.voteAverage) > 0) {
+    ratingEl.textContent = `★ ${Number(item.voteAverage).toFixed(1)}`;
+    ratingEl.classList.remove("hidden");
+  } else {
+    ratingEl.classList.add("hidden");
+  }
+
+  const ageEl = document.getElementById("detailAgeRating");
+  if (item.ageRating) {
+    ageEl.textContent = item.ageRating;
+    ageEl.classList.remove("hidden");
+  } else {
+    ageEl.classList.add("hidden");
+  }
+
+  // 5. Genres
+  const genresEl = document.getElementById("detailGenres");
+  const genresList = (item.genres || "").split(",").map((g) => g.trim()).filter(Boolean);
+  if (genresList.length > 0) {
+    genresEl.innerHTML = genresList.map((g) => `<span class="genre-chip">${escapeHtml(g)}</span>`).join("");
+    genresEl.classList.remove("hidden");
+  } else {
+    genresEl.innerHTML = "";
+    genresEl.classList.add("hidden");
+  }
+
+  // 6. Status-Auswahl Buttons
+  const statusBadge = document.getElementById("detailCurrentStatusBadge");
+  const statusButtons = document.querySelectorAll(".status-choice-btn");
+  statusButtons.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.status === currentStatus);
+  });
+
+  if (!isSaved) {
+    statusBadge.textContent = "Noch nicht auf TV-Liste";
+    statusBadge.className = "status-pill offline";
+  } else {
+    const statusLabels = {
+      PLAN_TO_WATCH: { text: "Noch nicht gesehen", cls: "offline" },
+      WATCHING: { text: "Gerade am ansehen", cls: "online" },
+      WATCHED: { text: "Gesehen ✓", cls: "online" },
+      DROPPED: { text: "Abgebrochen", cls: "offline" }
+    };
+    const info = statusLabels[currentStatus] || { text: currentStatus, cls: "online" };
+    statusBadge.textContent = info.text;
+    statusBadge.className = `status-pill ${info.cls}`;
+  }
+
+  // 7. Serien Episoden-Tracker
+  const epTracker = document.getElementById("detailEpisodeTracker");
+  if (item.mediaType === "tv") {
+    epTracker.classList.remove("hidden");
+    const curSeason = savedItem?.currentSeason || 1;
+    const curEpisode = savedItem?.currentEpisode || 1;
+    document.getElementById("detailEpisodeProgressText").textContent = `Staffel ${curSeason} • Folge ${curEpisode}`;
+  } else {
+    epTracker.classList.add("hidden");
+  }
+
+  // 8. Streaming Anbieter
+  const providersContainer = document.getElementById("detailStreamingProviders");
+  const allProviders = item.fullProvidersList || [];
+  const simpleProviders = parseProviders(savedItem?.streamingProviders || item.streamingProviders);
+
+  if (allProviders.length > 0) {
+    providersContainer.innerHTML = allProviders.map((p) => {
+      const isSub = KnownProvidersMatches(p.name, state.subscriptions);
+      const logoUrl = p.logo ? `https://image.tmdb.org/t/p/w92${p.logo}` : "";
+      return `<div class="provider-pill ${isSub ? "subscribed" : ""}" style="display:inline-flex;align-items:center;gap:6px;">
+        ${logoUrl ? `<img src="${logoUrl}" alt="${escapeHtml(p.name)}" style="width:18px;height:18px;border-radius:4px;object-fit:cover;" />` : ""}
+        <span>${isSub ? "✓ " : ""}${escapeHtml(p.name)}</span>
+        <span style="font-size:0.68rem;opacity:0.75;">(${p.type === "buy_rent" ? "Leihen/Kaufen" : "Abo"})</span>
+      </div>`;
+    }).join("");
+  } else if (simpleProviders.length > 0) {
+    providersContainer.innerHTML = simpleProviders.map((slug) => {
+      const pObj = SUPPORTED_PROVIDERS.find((p) => p.id === slug);
+      const label = pObj ? pObj.label : slug;
+      const isSub = state.subscriptions.includes(slug);
+      return `<span class="provider-pill ${isSub ? "subscribed" : ""}">${isSub ? "✓ " : ""}${escapeHtml(label)}</span>`;
+    }).join("");
+  } else {
+    providersContainer.innerHTML = `<span class="provider-pill">Keine Streaming-Rechte für ${state.region} hinterlegt</span>`;
+  }
+
+  // 9. Handlung
+  document.getElementById("detailOverview").textContent = item.overview || "Keine Beschreibung verfügbar.";
+
+  // 10. Trailer & Löschen Buttons
+  const trailerBtn = document.getElementById("detailTrailerBtn");
+  if (item.trailerYoutubeKey) {
+    trailerBtn.href = `https://www.youtube.com/watch?v=${item.trailerYoutubeKey}`;
+    trailerBtn.classList.remove("hidden");
+  } else {
+    trailerBtn.classList.add("hidden");
+  }
+
+  const removeBtn = document.getElementById("detailRemoveBtn");
+  removeBtn.classList.toggle("hidden", !isSaved);
+}
+
+function KnownProvidersMatches(provName, userSubs) {
+  if (!provName) return false;
+  const lower = provName.toLowerCase();
+  for (const sub of userSubs) {
+    if (sub === "netflix" && lower.includes("netflix")) return true;
+    if (sub === "prime" && (lower.includes("prime") || lower.includes("amazon"))) return true;
+    if (sub === "disney" && lower.includes("disney")) return true;
+    if (sub === "wow" && (lower.includes("wow") || lower.includes("sky"))) return true;
+    if (sub === "apple" && (lower.includes("apple") || lower.includes("itunes"))) return true;
+    if (sub === "paramount" && lower.includes("paramount")) return true;
+    if (sub === "rtl" && lower.includes("rtl")) return true;
+    if (sub === "joyn" && lower.includes("joyn")) return true;
+    if (sub === "magenta" && lower.includes("magenta")) return true;
+    if (sub === "crunchyroll" && lower.includes("crunchyroll")) return true;
+  }
+  return false;
 }
 
 function renderSearchResults() {
@@ -853,30 +1165,93 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // 4. Event-Delegation für Karten-Aktionen (1-Tap Add)
+  // 4. Event-Delegation für Karten (Klick auf Karte -> Detailansicht; Klick auf Buttons -> Schnellaktion)
   document.body.addEventListener("click", async (e) => {
+    // Falls auf einen Button innerhalb einer Karte geklickt wurde:
     const btn = e.target.closest("[data-action]");
-    if (!btn) return;
+    if (btn) {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const item =
+        state.searchResults.find((x) => String(x.id) === String(id)) ||
+        state.watchlistMap.get(String(id));
 
-    const action = btn.dataset.action;
-    const id = btn.dataset.id;
-    const item =
-      state.searchResults.find((x) => String(x.id) === String(id)) ||
-      state.watchlistMap.get(String(id));
+      if (!item) return;
 
-    if (!item) return;
+      if (action === "plan") {
+        await addOrUpdateWatchlistItem(item, "PLAN_TO_WATCH");
+      } else if (action === "watch-now") {
+        await addOrUpdateWatchlistItem(item, "WATCHING");
+      } else if (action === "toggle-watching") {
+        const nextStatus = item.status === "WATCHING" ? "PLAN_TO_WATCH" : "WATCHING";
+        await addOrUpdateWatchlistItem(item, nextStatus);
+      } else if (action === "next-ep") {
+        await incrementEpisode(id);
+      } else if (action === "remove") {
+        await removeWatchlistItem(id);
+      }
+      return;
+    }
 
-    if (action === "plan") {
-      await addOrUpdateWatchlistItem(item, "PLAN_TO_WATCH");
-    } else if (action === "watch-now") {
-      await addOrUpdateWatchlistItem(item, "WATCHING");
-    } else if (action === "toggle-watching") {
-      const nextStatus = item.status === "WATCHING" ? "PLAN_TO_WATCH" : "WATCHING";
-      await addOrUpdateWatchlistItem(item, nextStatus);
-    } else if (action === "next-ep") {
-      await incrementEpisode(id);
-    } else if (action === "remove") {
-      await removeWatchlistItem(id);
+    // Klick auf eine Film-/Serien-Karte -> Detailansicht öffnen
+    const card = e.target.closest(".media-card");
+    if (card) {
+      const cardId = card.dataset.cardId;
+      const item =
+        state.watchlistMap.get(String(cardId)) ||
+        state.searchResults.find((x) => String(x.id) === String(cardId));
+      if (item) {
+        openDetailModal(item);
+      }
+    }
+  });
+
+  // 4b. Detail Modal Events (Status-Auswahl, Episoden, Schließen, Löschen)
+  document.getElementById("closeDetailBtn").addEventListener("click", closeDetailModal);
+
+  // Klick auf Status-Auswahl-Buttons im Detail-Modal
+  document.querySelectorAll(".status-choice-btn").forEach((statusBtn) => {
+    statusBtn.addEventListener("click", async () => {
+      if (!state.currentDetailItem) return;
+      const targetStatus = statusBtn.dataset.status;
+      await changeItemStatus(state.currentDetailItem.id, targetStatus);
+    });
+  });
+
+  // Episoden-Stepper im Detail-Modal
+  document.getElementById("detailNextEpBtn").addEventListener("click", async () => {
+    if (!state.currentDetailItem) return;
+    await incrementEpisode(state.currentDetailItem.id);
+  });
+
+  document.getElementById("detailPrevEpBtn").addEventListener("click", async () => {
+    if (!state.currentDetailItem) return;
+    await decrementEpisode(state.currentDetailItem.id);
+  });
+
+  // Von Watchlist löschen im Detail-Modal
+  document.getElementById("detailRemoveBtn").addEventListener("click", async () => {
+    if (!state.currentDetailItem) return;
+    const title = state.currentDetailItem.title;
+    if (confirm(`Möchtest du „${title}“ wirklich von deiner TV-Watchlist entfernen?`)) {
+      await removeWatchlistItem(state.currentDetailItem.id);
+      closeDetailModal();
+    }
+  });
+
+  // Modal schließen bei Klick auf den Backdrop
+  document.getElementById("detailModal").addEventListener("click", (e) => {
+    if (e.target.id === "detailModal") {
+      closeDetailModal();
+    }
+  });
+
+  // Escape-Taste schließt Modals
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeDetailModal();
+      document.getElementById("settingsModal").classList.add("hidden");
     }
   });
 

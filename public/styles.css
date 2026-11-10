@@ -600,6 +600,252 @@ body {
   color: var(--text-secondary);
 }
 
+/* Detail Modal Styles (Kinogefühl mit Backdrop wie auf Android TV) */
+.detail-sheet {
+  max-height: 94dvh;
+  border-top: 1.5px solid var(--accent-cyan);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.8);
+}
+
+.detail-hero {
+  position: relative;
+  min-height: 190px;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: flex-end;
+  padding: 16px 16px 14px;
+}
+
+.detail-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(6, 10, 24, 0.45) 0%,
+    rgba(6, 10, 24, 0.85) 60%,
+    var(--bg-surface) 100%
+  );
+  backdrop-filter: blur(2px);
+}
+
+.detail-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(6, 10, 24, 0.7);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.detail-close-btn:active {
+  transform: scale(0.92);
+}
+
+.detail-hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.detail-poster-wrap {
+  width: 90px;
+  min-width: 90px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  border: 1.5px solid var(--border-cyan);
+  background: var(--bg-deep);
+}
+
+.detail-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #fff;
+  margin: 4px 0 6px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.detail-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.detail-genres-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.genre-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.detail-body {
+  gap: 18px;
+}
+
+.detail-section {
+  background: var(--bg-deep);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.detail-section h3 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+/* Status Selector Grid */
+.status-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.status-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.status-choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.status-choice-btn .status-choice-icon {
+  font-size: 1.05rem;
+}
+
+.status-choice-btn.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 14px var(--accent-cyan-glow);
+}
+
+.status-choice-btn[data-status="WATCHING"].active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.status-choice-btn[data-status="WATCHED"].active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.status-choice-btn[data-status="DROPPED"].active {
+  background: rgba(225, 29, 72, 0.18);
+  border-color: var(--accent-red);
+  color: #FDA4AF;
+}
+
+/* Episode Stepper */
+.episode-tracker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.episode-control-row {
+  display: flex;
+  gap: 10px;
+}
+
+.ep-stepper-btn {
+  flex: 1;
+  padding: 10px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.detail-overview-text {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #CBD5E1;
+}
+
+.detail-providers-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-actions-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trailer-link {
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  color: var(--accent-gold);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.trailer-link:hover {
+  background: rgba(245, 158, 11, 0.1);
+}
+
 .spinner {
   width: 34px;
   height: 34px;
